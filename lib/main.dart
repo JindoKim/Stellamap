@@ -9,18 +9,49 @@ void main() {
 }
 
 // ==========================================
-// 🌐 전역 상태 관리
+// 🌐 전역 상태 관리 및 API 설정
 // ==========================================
 String? globalToken;
 String? globalUsername;
-// 💡 API 경로를 localhost로 변경했습니다.
-const String baseUrl = 'http://localhost:8080/api/v1';
+const String baseUrl = 'http://10.0.2.2:9000/api/v1';
 
 final ValueNotifier<int> globalThemeIndex = ValueNotifier(0);
 
-// ==========================================
-// 🎨 감성 UI 페이드 라우트
-// ==========================================
+void showToast(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white24,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+}
+
+String? getUserIdFromToken(String? token) {
+  if (token == null) return null;
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    String payload = parts[1];
+    switch (payload.length % 4) {
+      case 2:
+        payload += '==';
+        break;
+      case 3:
+        payload += '=';
+        break;
+    }
+    final decodedBytes = base64Url.decode(payload);
+    final decodedString = utf8.decode(decodedBytes);
+    final map = jsonDecode(decodedString);
+    return map['sub']?.toString();
+  } catch (_) {
+    return null;
+  }
+}
+
 class FadePageRoute extends PageRouteBuilder {
   final Widget page;
   FadePageRoute({required this.page})
@@ -36,9 +67,6 @@ class FadePageRoute extends PageRouteBuilder {
       );
 }
 
-// ==========================================
-// 📱 메인 앱 테마 설정
-// ==========================================
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -95,7 +123,7 @@ Future<void> performLogout(BuildContext context) async {
 }
 
 // ==========================================
-// ✨ 밤하늘 배경 (🌟 부드러운 보라 및 확연한 전환 색상 적용)
+// ✨ 밤하늘 배경
 // ==========================================
 class NightSkyBackground extends StatefulWidget {
   final Widget child;
@@ -104,9 +132,9 @@ class NightSkyBackground extends StatefulWidget {
   State<NightSkyBackground> createState() => _NightSkyBackgroundState();
 }
 
-class Star {
+class StarParticle {
   double x, y, speed, size, opacity;
-  Star({
+  StarParticle({
     required this.x,
     required this.y,
     required this.speed,
@@ -118,20 +146,14 @@ class Star {
 class _NightSkyBackgroundState extends State<NightSkyBackground>
     with SingleTickerProviderStateMixin {
   late AnimationController _starCtrl;
-  final List<Star> _stars = [];
+  final List<StarParticle> _stars = [];
 
-  // 🌟 화면 전환 시 확연하게 눈에 띄는 감성적인 컬러 팔레트 구성
   final List<List<Color>> _themeColors = const [
-    // 1. Star Map: 부드럽고 차분한 보라 (Soft Violet)
-    [Color(0xFF4B385D), Color(0xFF281C35), Color(0xFF100918)],
-    // 2. Diaries: 자정의 깊은 푸른 보라 (Midnight Blue-Purple)
-    [Color(0xFF334366), Color(0xFF1B253D), Color(0xFF0A0F1A)],
-    // 3. Profile: 우아한 딥 로즈 퍼플 (Dusky Rose Purple)
-    [Color(0xFF5A3C4D), Color(0xFF301E28), Color(0xFF150A11)],
-    // 4. Melody: 신비로운 오로라 인디고 (Mystic Indigo)
-    [Color(0xFF313B5E), Color(0xFF181E33), Color(0xFF090D1A)],
-    // 5. Calendar: 짙은 황혼의 딥 퍼플 (Deep Twilight Purple)
-    [Color(0xFF452C54), Color(0xFF24152E), Color(0xFF0E0714)],
+    [Color(0xFF2C2C2C), Color(0xFF1A1A1A), Color(0xFF0D0D0D)],
+    [Color(0xFF333333), Color(0xFF1E1E1E), Color(0xFF0A0A0A)],
+    [Color(0xFF2A2A2A), Color(0xFF151515), Color(0xFF000000)],
+    [Color(0xFF303030), Color(0xFF1C1C1C), Color(0xFF080808)],
+    [Color(0xFF252525), Color(0xFF121212), Color(0xFF050505)],
   ];
 
   @override
@@ -151,7 +173,7 @@ class _NightSkyBackgroundState extends State<NightSkyBackground>
       final rand = math.Random();
       for (int i = 0; i < 50; i++) {
         _stars.add(
-          Star(
+          StarParticle(
             x: rand.nextDouble() * size.width,
             y: rand.nextDouble() * size.height,
             speed: 0.1 + rand.nextDouble() * 0.4,
@@ -188,9 +210,7 @@ class _NightSkyBackgroundState extends State<NightSkyBackground>
       valueListenable: globalThemeIndex,
       builder: (context, themeIndex, child) {
         return AnimatedContainer(
-          duration: const Duration(
-            milliseconds: 700,
-          ), // 색상이 부드럽지만 확실하게 스며들며 변합니다.
+          duration: const Duration(milliseconds: 700),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -217,7 +237,7 @@ class _NightSkyBackgroundState extends State<NightSkyBackground>
 }
 
 class StarPainter extends CustomPainter {
-  final List<Star> stars;
+  final List<StarParticle> stars;
   StarPainter(this.stars);
   @override
   void paint(Canvas canvas, Size size) {
@@ -233,7 +253,7 @@ class StarPainter extends CustomPainter {
 }
 
 // ==========================================
-// 0. 💎 스플래시 화면
+// 0. 스플래시 화면
 // ==========================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -246,7 +266,6 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _ctrl;
   late Animation<double> _pathAnim;
   late Animation<double> _textAnim;
-
   @override
   void initState() {
     super.initState();
@@ -266,7 +285,6 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
       ),
     );
-
     _ctrl.forward().then((_) {
       Future.delayed(const Duration(milliseconds: 400), () {
         if (mounted)
@@ -363,11 +381,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameCtrl = TextEditingController();
   final _nicknameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-
-  double _opacity = 0.0;
-  double _scale = 0.90;
-  double _translateY = 40.0;
-
+  double _opacity = 0.0, _scale = 0.90, _translateY = 40.0;
   @override
   void initState() {
     super.initState();
@@ -397,10 +411,10 @@ class _AuthScreenState extends State<AuthScreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
+      final resData = jsonDecode(utf8.decode(response.bodyBytes));
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (isLoginMode) {
-          final data = jsonDecode(utf8.decode(response.bodyBytes));
-          globalToken = data['data']['accessToken'];
+          globalToken = resData['data']['accessToken'];
           globalUsername = _usernameCtrl.text;
           if (!mounted) return;
           Navigator.pushReplacement(
@@ -408,27 +422,15 @@ class _AuthScreenState extends State<AuthScreen> {
             FadePageRoute(page: const MainDashboardScreen()),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '가입이 완료되었습니다. 로그인해주세요.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          );
+          showToast(context, '가입이 완료되었습니다. 로그인해주세요.');
           setState(() => isLoginMode = true);
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '오류: ${jsonDecode(utf8.decode(response.bodyBytes))['message']}',
-            ),
-            backgroundColor: Colors.redAccent.withOpacity(0.8),
-          ),
-        );
+        showToast(context, resData['message'] ?? '오류 발생');
       }
-    } catch (e) {}
+    } catch (e) {
+      showToast(context, '서버와 연결할 수 없습니다.');
+    }
   }
 
   @override
@@ -570,35 +572,34 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   late PageController _pageCtrl;
   final int _initialPage = 5000;
   double _pageOffset = 5000.0;
-
+  bool _canScrollPageView = true;
   final List<String> _titles = [
     'Starry Map',
     'Night Diaries',
     'My Profile',
-    'Melodies',
-    'Calendar',
+    'My Wishes',
+    'Stardust Shop',
   ];
   final List<IconData> _navIcons = [
     Icons.auto_awesome,
     Icons.menu_book_outlined,
     Icons.person_outline,
-    Icons.headphones_outlined,
-    Icons.calendar_month_outlined,
+    Icons.favorite_border,
+    Icons.palette_outlined,
   ];
   final List<String> _navLabels = [
     'Map',
     'Diaries',
     'Profile',
-    'Melody',
-    'Calendar',
+    'Wishes',
+    'Shop',
   ];
-
   final List<Widget> _pages = const [
     StarMapTab(),
     DiariesTab(),
     ProfileTab(),
-    DummyMusicTab(),
-    CalendarTab(),
+    WishedStarsTab(),
+    SkinShopTab(),
   ];
 
   @override
@@ -622,26 +623,52 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     int currentRealIndex = _pageOffset.round() % 5;
-
     return Scaffold(
       appBar: AppBar(title: Text(_titles[currentRealIndex])),
-      body: PageView.builder(
-        controller: _pageCtrl,
-        physics: const BouncingScrollPhysics(),
-        itemBuilder: (context, index) {
-          int realIndex = index % 5;
-          double rawDiff = index - _pageOffset;
-          double opacity = (1 - rawDiff.abs()).clamp(0.0, 1.0);
-          double slideAmount =
-              (-rawDiff * MediaQuery.of(context).size.width) + (rawDiff * 80);
 
-          return Transform.translate(
-            offset: Offset(slideAmount, 0),
-            child: Opacity(opacity: opacity, child: _pages[realIndex]),
-          );
+      // ✨ Listener를 추가하여 터치 시작 위치를 감지합니다.
+      body: Listener(
+        onPointerDown: (event) {
+          // 첫 번째 탭(별자리 지도)일 때만 동작 제어
+          if (currentRealIndex == 0) {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final dx = event.position.dx;
+
+            // 좌우 40px 가장자리 터치 시에만 다음 화면으로 넘어가는 스와이프 허용
+            if (dx < 40 || dx > screenWidth - 40) {
+              if (!_canScrollPageView)
+                setState(() => _canScrollPageView = true);
+            } else {
+              // 중앙 터치 시 PageView 스크롤을 막아 InteractiveViewer가 드래그를 차지하게 함
+              if (_canScrollPageView)
+                setState(() => _canScrollPageView = false);
+            }
+          } else {
+            // 다른 탭에서는 어디서든 스와이프 허용
+            if (!_canScrollPageView) setState(() => _canScrollPageView = true);
+          }
         },
+        child: PageView.builder(
+          controller: _pageCtrl,
+          // ✨ _canScrollPageView 상태에 따라 스크롤 동작을 변경합니다.
+          physics: _canScrollPageView
+              ? const BouncingScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            int realIndex = index % 5;
+            double rawDiff = index - _pageOffset;
+            double opacity = (1 - rawDiff.abs()).clamp(0.0, 1.0);
+            double slideAmount =
+                (-rawDiff * MediaQuery.of(context).size.width) + (rawDiff * 80);
+            return Transform.translate(
+              offset: Offset(slideAmount, 0),
+              child: Opacity(opacity: opacity, child: _pages[realIndex]),
+            );
+          },
+        ),
       ),
       bottomNavigationBar: SafeArea(
+        // ... 하단 네비게이션 바 코드는 기존과 동일 ...
         child: Container(
           height: 100,
           decoration: const BoxDecoration(
@@ -654,15 +681,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               double diff = i - wrappedOffset;
               if (diff > 2.5) diff -= 5.0;
               if (diff < -2.5) diff += 5.0;
-
               double angle = diff * 0.45;
               double radius = 160.0;
               double xPos = radius * math.sin(angle);
               double yPos = radius - radius * math.cos(angle);
-
               double scale = 1.0 - (diff.abs() * 0.15).clamp(0.0, 0.4);
               double opacity = 1.0 - (diff.abs() * 0.4).clamp(0.0, 0.8);
-
               return Transform.translate(
                 offset: Offset(xPos, yPos + 15),
                 child: Transform.rotate(
@@ -717,7 +741,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 }
 
 // ==========================================
-// 3. 캔버스 별자리 지도 (Star Map Tab)
+// 3. 🌌 캔버스 별자리 지도 (터치감 및 상시 색상 완벽 개선)
 // ==========================================
 class StarMapTab extends StatefulWidget {
   const StarMapTab({super.key});
@@ -727,59 +751,60 @@ class StarMapTab extends StatefulWidget {
 
 class _StarMapTabState extends State<StarMapTab> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _stars = [];
-  final math.Random _rnd = math.Random();
+  List<List<Map<String, dynamic>>> _starPairs = [];
+  Map<String, dynamic>? _selectedStar;
 
   final TransformationController _transCtrl = TransformationController();
   late AnimationController _cameraAnimCtrl;
+  late AnimationController _floatAnimCtrl;
   Animation<Matrix4>? _cameraAnim;
+  final math.Random _rnd = math.Random();
 
   @override
   void initState() {
     super.initState();
     _cameraAnimCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 800),
     );
     _cameraAnimCtrl.addListener(() {
       if (_cameraAnim != null) _transCtrl.value = _cameraAnim!.value;
     });
+    _floatAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+
     _fetchStars();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusTo(1000, 1000, 1.2);
+    });
   }
 
   @override
   void dispose() {
     _cameraAnimCtrl.dispose();
+    _floatAnimCtrl.dispose();
     _transCtrl.dispose();
     super.dispose();
   }
 
-  void _focusOnStars() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final size = MediaQuery.of(context).size;
-      double targetX = 1000.0, targetY = 1000.0;
-      if (_stars.isNotEmpty) {
-        double sumX = 0, sumY = 0;
-        for (var star in _stars) {
-          sumX += star['x'];
-          sumY += star['y'];
-        }
-        targetX = sumX / _stars.length;
-        targetY = sumY / _stars.length;
-      }
-      final x = targetX - (size.width / 2);
-      final y = targetY - (size.height / 2);
-      final targetMatrix = Matrix4.identity()..translate(-x, -y);
-
-      _cameraAnim = Matrix4Tween(begin: _transCtrl.value, end: targetMatrix)
-          .animate(
-            CurvedAnimation(
-              parent: _cameraAnimCtrl,
-              curve: Curves.easeInOutCubic,
-            ),
-          );
-      _cameraAnimCtrl.forward(from: 0.0);
-    });
+  void _focusTo(double targetX, double targetY, double targetScale) {
+    if (!mounted) return;
+    final size = MediaQuery.of(context).size;
+    final x = targetX * targetScale - (size.width / 2);
+    final y = targetY * targetScale - (size.height / 2);
+    final targetMatrix = Matrix4.identity()
+      ..translate(-x, -y)
+      ..scale(targetScale);
+    _cameraAnim = Matrix4Tween(begin: _transCtrl.value, end: targetMatrix)
+        .animate(
+          CurvedAnimation(
+            parent: _cameraAnimCtrl,
+            curve: Curves.easeInOutCubic,
+          ),
+        );
+    _cameraAnimCtrl.forward(from: 0.0);
   }
 
   Future<void> _fetchStars() async {
@@ -794,14 +819,84 @@ class _StarMapTabState extends State<StarMapTab> with TickerProviderStateMixin {
         for (var s in (data['data'] ?? [])) {
           parsedStars.add({
             ...s,
-            'x': _rnd.nextDouble() * 1500 + 250,
-            'y': _rnd.nextDouble() * 1500 + 250,
+            'x': _rnd.nextDouble() * 700 + 650,
+            'y': _rnd.nextDouble() * 700 + 650,
+            'phase': _rnd.nextDouble() * math.pi * 2,
           });
         }
-        setState(() => _stars = parsedStars);
-        _focusOnStars();
+
+        // 최소 신장 트리(MST) 단일 성단 연결 알고리즘
+        List<List<Map<String, dynamic>>> pairs = [];
+        if (parsedStars.isNotEmpty) {
+          List<Map<String, dynamic>> connected = [parsedStars[0]];
+          List<Map<String, dynamic>> unconnected = List.from(parsedStars)
+            ..removeAt(0);
+
+          while (unconnected.isNotEmpty) {
+            double minDist = double.infinity;
+            Map<String, dynamic>? bestConnected;
+            Map<String, dynamic>? bestUnconnected;
+            int bestUnconnectedIndex = -1;
+
+            for (var cNode in connected) {
+              for (int i = 0; i < unconnected.length; i++) {
+                var uNode = unconnected[i];
+                double dx = cNode['x'] - uNode['x'];
+                double dy = cNode['y'] - uNode['y'];
+                double dist = dx * dx + dy * dy;
+                if (dist < minDist) {
+                  minDist = dist;
+                  bestConnected = cNode;
+                  bestUnconnected = uNode;
+                  bestUnconnectedIndex = i;
+                }
+              }
+            }
+
+            if (bestConnected != null && bestUnconnected != null) {
+              pairs.add([bestConnected, bestUnconnected]);
+              connected.add(bestUnconnected);
+              unconnected.removeAt(bestUnconnectedIndex);
+            } else {
+              break;
+            }
+          }
+        }
+
+        setState(() {
+          _stars = parsedStars;
+          _starPairs = pairs;
+        });
       }
     } catch (e) {}
+  }
+
+  void _onStarTap(Map<String, dynamic> star) {
+    setState(() => _selectedStar = star);
+    _focusTo(star['x'], star['y'], 2.5);
+  }
+
+  void _onBackgroundTap() {
+    if (_selectedStar != null) {
+      setState(() => _selectedStar = null);
+      _focusTo(1000, 1000, 1.2);
+    }
+  }
+
+  Future<void> _sendWish() async {
+    if (_selectedStar == null) return;
+    final starId = _selectedStar!['id'];
+    setState(() => _selectedStar = null);
+    _focusTo(1000, 1000, 1.2);
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/stars/$starId/wishes'),
+        headers: {'Authorization': 'Bearer $globalToken'},
+      );
+      final resData = jsonDecode(utf8.decode(res.bodyBytes));
+      showToast(context, resData['message']);
+      if (res.statusCode == 200) _fetchStars();
+    } catch (_) {}
   }
 
   void _showAddNoteSheet() {
@@ -823,6 +918,10 @@ class _StarMapTabState extends State<StarMapTab> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    String? myId = getUserIdFromToken(globalToken);
+    bool isMyStar =
+        _selectedStar != null && _selectedStar!['userId']?.toString() == myId;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -832,22 +931,200 @@ class _StarMapTabState extends State<StarMapTab> with TickerProviderStateMixin {
             boundaryMargin: const EdgeInsets.all(2000),
             minScale: 0.1,
             maxScale: 4.0,
-            child: SizedBox(
-              width: 2000,
-              height: 2000,
-              child: CustomPaint(
-                key: ValueKey(_stars.length),
-                painter: EmotionMapPainter(stars: _stars),
+            constrained: false,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _onBackgroundTap,
+              child: SizedBox(
+                width: 2000,
+                height: 2000,
+                child: AnimatedBuilder(
+                  animation: _floatAnimCtrl,
+                  builder: (context, child) {
+                    return Stack(
+                      children: [
+                        CustomPaint(
+                          size: const Size(2000, 2000),
+                          painter: ConstellationLinePainter(
+                            pairs: _starPairs,
+                            animValue: _floatAnimCtrl.value,
+                          ),
+                        ),
+                        ..._stars.map((star) {
+                          bool isSelected =
+                              _selectedStar != null &&
+                              _selectedStar!['id'] == star['id'];
+                          Color starColor = Color(
+                            int.parse("0xFF${star['color'] ?? 'FFFFFF'}"),
+                          );
+                          double bobY =
+                              math.sin(
+                                _floatAnimCtrl.value * math.pi * 2 +
+                                    star['phase'],
+                              ) *
+                              4.0;
+
+                          return Positioned(
+                            // 🌟 히트박스 범위를 대폭 축소 (100 -> 40 오프셋 변경, 가로세로 80정밀 크기화)
+                            left: star['x'] - 40,
+                            top: star['y'] - 40 + bobY,
+                            width: 80,
+                            height: 80,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () => _onStarTap(star),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // 🌟 스킨 색상이 상시 노출되도록 컬러 연동 및 하이라이트 핵 추가
+                                  Container(
+                                    width: isSelected ? 16 : 8,
+                                    height: isSelected ? 16 : 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: starColor, // 안 눌렸을 때도 상시 적용되게 수정됨
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: starColor.withOpacity(
+                                            isSelected ? 0.9 : 0.5,
+                                          ),
+                                          blurRadius: isSelected ? 12 : 6,
+                                          spreadRadius: isSelected ? 2 : 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: isSelected
+                                        ? Center(
+                                            child: Container(
+                                              width: 4,
+                                              height: 4,
+                                              decoration: const BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  // 🌟 작아진 히트박스 영역에 맞춰 글자 오프셋 위치 재조정
+                                  Positioned(
+                                    top: 52,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          star['text'],
+                                          style: const TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 11,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (star['wishCount'] > 0)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 2.0,
+                                            ),
+                                            child: Text(
+                                              '★ ${star['wishCount']}',
+                                              style: const TextStyle(
+                                                color: Colors.amber,
+                                                fontSize: 9,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
-          Positioned(
-            top: 20,
-            right: 20,
-            child: IconButton(
-              icon: const Icon(Icons.my_location, color: Colors.white54),
-              onPressed: _focusOnStars,
-            ),
+
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutCubic,
+            bottom: _selectedStar != null ? 30 : -200,
+            left: 24,
+            right: 24,
+            child: _selectedStar != null
+                ? Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF151515).withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '별자리에 담긴 기억',
+                          style: TextStyle(
+                            color: Colors.white30,
+                            fontSize: 11,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '"${_selectedStar!['text']}"',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            height: 1.6,
+                            fontWeight: FontWeight.w300,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isMyStar
+                                ? Colors.white24
+                                : Colors.white,
+                            side: BorderSide(
+                              color: isMyStar ? Colors.white10 : Colors.white24,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          onPressed: isMyStar ? null : _sendWish,
+                          icon: Icon(
+                            isMyStar
+                                ? Icons.person_outline
+                                : Icons.favorite_border,
+                            size: 18,
+                          ),
+                          label: Text(
+                            isMyStar ? '내가 만든 별' : '염원 보내기',
+                            style: const TextStyle(letterSpacing: 1.0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -862,43 +1139,34 @@ class _StarMapTabState extends State<StarMapTab> with TickerProviderStateMixin {
   }
 }
 
-class EmotionMapPainter extends CustomPainter {
-  final List<Map<String, dynamic>> stars;
-  EmotionMapPainter({required this.stars});
+class ConstellationLinePainter extends CustomPainter {
+  final List<List<Map<String, dynamic>>> pairs;
+  final double animValue;
+
+  ConstellationLinePainter({required this.pairs, required this.animValue});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.9)
-      ..style = PaintingStyle.fill;
-    final glowPaint = Paint()
-      ..color = const Color(0xFFB39DDB).withOpacity(0.4)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.0);
+      ..color = Colors.white12
+      ..strokeWidth = 0.8;
 
-    for (var star in stars) {
-      double x = star['x'];
-      double y = star['y'];
-      canvas.drawCircle(Offset(x, y), 16.0, glowPaint);
-      canvas.drawCircle(Offset(x, y), 3.5, paint);
+    for (var pair in pairs) {
+      var s1 = pair[0];
+      var s2 = pair[1];
+      double bobY1 = math.sin(animValue * math.pi * 2 + s1['phase']) * 4.0;
+      double bobY2 = math.sin(animValue * math.pi * 2 + s2['phase']) * 4.0;
 
-      final textSpan = TextSpan(
-        text: star['text'],
-        style: GoogleFonts.nanumMyeongjo(
-          color: Colors.white70,
-          fontSize: 13,
-          letterSpacing: 0.5,
-        ),
+      canvas.drawLine(
+        Offset(s1['x'], s1['y'] + bobY1),
+        Offset(s2['x'], s2['y'] + bobY2),
+        paint,
       );
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      textPainter.paint(canvas, Offset(x + 12, y - 8));
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant ConstellationLinePainter oldDelegate) => true;
 }
 
 class NoteWriteSheet extends StatefulWidget {
@@ -974,7 +1242,7 @@ class _NoteWriteSheetState extends State<NoteWriteSheet> {
 }
 
 // ==========================================
-// 4. 긴 글 (Diaries) 탭
+// 4. 일기장 (Diaries)
 // ==========================================
 class DiariesTab extends StatefulWidget {
   const DiariesTab({super.key});
@@ -985,7 +1253,6 @@ class DiariesTab extends StatefulWidget {
 class _DiariesTabState extends State<DiariesTab> {
   List<dynamic> _diaries = [];
   bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
@@ -993,17 +1260,20 @@ class _DiariesTabState extends State<DiariesTab> {
   }
 
   Future<void> _fetchDiaries() async {
-    final res = await http.get(
-      Uri.parse('$baseUrl/diaries'),
-      headers: {'Authorization': 'Bearer $globalToken'},
-    );
-    if (res.statusCode == 200 && mounted) {
-      setState(() {
-        _diaries = jsonDecode(utf8.decode(res.bodyBytes))['data'] ?? [];
-        _isLoading = false;
-      });
-    } else {
-      if (mounted) setState(() => _isLoading = false);
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/diaries'),
+        headers: {'Authorization': 'Bearer $globalToken'},
+      );
+      if (res.statusCode == 200)
+        setState(() {
+          _diaries = jsonDecode(utf8.decode(res.bodyBytes))['data'] ?? [];
+          _isLoading = false;
+        });
+      else
+        setState(() => _isLoading = false);
+    } catch (_) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -1109,220 +1379,6 @@ class _DiariesTabState extends State<DiariesTab> {
   }
 }
 
-// ==========================================
-// 5. 프로필 탭
-// ==========================================
-class ProfileTab extends StatelessWidget {
-  const ProfileTab({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: const Icon(Icons.person, size: 60, color: Colors.white54),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              globalUsername ?? 'User',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                letterSpacing: 2.0,
-              ),
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white10,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text(
-                'Sign Out',
-                style: TextStyle(letterSpacing: 1.5),
-              ),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF281C35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    title: const Text(
-                      '로그아웃',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: const Text(
-                      '우주 탐색을 종료하시겠습니까?',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text(
-                          '취소',
-                          style: TextStyle(color: Colors.white54),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          performLogout(context);
-                        },
-                        child: const Text(
-                          '로그아웃',
-                          style: TextStyle(color: Colors.redAccent),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 6. 더미 탭 (Melody, Calendar)
-// ==========================================
-class DummyMusicTab extends StatelessWidget {
-  const DummyMusicTab({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Center(
-        child: Text(
-          "Melody Player\n(Coming Soon)",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white30,
-            fontSize: 16,
-            height: 1.5,
-            letterSpacing: 1.5,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class CalendarTab extends StatelessWidget {
-  const CalendarTab({super.key});
-  @override
-  Widget build(BuildContext context) {
-    DateTime now = DateTime.now();
-    int daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
-    int firstDayWeekday = DateTime(now.year, now.month, 1).weekday;
-    int offset = firstDayWeekday == 7 ? 0 : firstDayWeekday;
-    List<int> attendedDays = [1, 3, 4, 8, 12, 15, 16, 21, now.day];
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '${now.year}. ${now.month.toString().padLeft(2, '0')}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w400,
-                color: Colors.white,
-                letterSpacing: 3.0,
-              ),
-            ),
-            const SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                  .map(
-                    (d) => Text(
-                      d,
-                      style: const TextStyle(
-                        color: Colors.white30,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 42,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                childAspectRatio: 1.2,
-              ),
-              itemBuilder: (context, index) {
-                if (index < offset || index >= offset + daysInMonth)
-                  return const SizedBox();
-                int day = index - offset + 1;
-                bool isAttended = attendedDays.contains(day);
-                bool isToday = day == now.day;
-                return Center(
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isToday ? Colors.white24 : Colors.transparent,
-                    ),
-                    alignment: Alignment.center,
-                    child: isAttended
-                        ? const Icon(
-                            Icons.star,
-                            color: Color(0xFFF3E5F5),
-                            size: 18,
-                          )
-                        : Text(
-                            '$day',
-                            style: const TextStyle(
-                              color: Colors.white30,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 8. 일기 상세 화면 및 작성 화면
-// ==========================================
 class DiaryDetailScreen extends StatefulWidget {
   final int diaryId;
   const DiaryDetailScreen({super.key, required this.diaryId});
@@ -1504,6 +1560,343 @@ class _DiaryWriteScreenState extends State<DiaryWriteScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 5. 내 프로필
+// ==========================================
+class ProfileTab extends StatefulWidget {
+  const ProfileTab({super.key});
+  @override
+  State<ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<ProfileTab> {
+  Map<String, dynamic>? _userProfile;
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/users/me'),
+        headers: {'Authorization': 'Bearer $globalToken'},
+      );
+      if (res.statusCode == 200)
+        setState(
+          () => _userProfile = jsonDecode(utf8.decode(res.bodyBytes))['data'],
+        );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_userProfile == null)
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white24),
+      );
+    bool isPremium = _userProfile!['isPremium'] == true;
+    String equippedColor = _userProfile!['equippedStarColor'] ?? 'FFFFFF';
+    int point = _userProfile!['point'] ?? 0;
+    int dailyWishCount = _userProfile!['dailyWishCount'] ?? 0;
+    String nickname = _userProfile!['nickname'] ?? 'User';
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(int.parse("0xFF$equippedColor")).withOpacity(0.3),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: const Icon(Icons.person, size: 60, color: Colors.white),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  nickname,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                if (isPremium)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: Icon(
+                      Icons.workspace_premium,
+                      color: Colors.yellowAccent,
+                      size: 20,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '스타더스트: $point',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            Text(
+              '오늘 보낸 염원: $dailyWishCount / ${isPremium ? 20 : 3}',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 40),
+            TextButton(
+              onPressed: () => performLogout(context),
+              child: const Text(
+                '로그아웃',
+                style: TextStyle(color: Colors.redAccent, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 6. 내가 위로한 별들
+// ==========================================
+class WishedStarsTab extends StatefulWidget {
+  const WishedStarsTab({super.key});
+  @override
+  State<WishedStarsTab> createState() => _WishedStarsTabState();
+}
+
+class _WishedStarsTabState extends State<WishedStarsTab> {
+  List<dynamic> _wishedStars = [];
+  bool _isLoading = true;
+  @override
+  void initState() {
+    super.initState();
+    _fetchWishedStars();
+  }
+
+  Future<void> _fetchWishedStars() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/stars/wished'),
+        headers: {'Authorization': 'Bearer $globalToken'},
+      );
+      if (res.statusCode == 200)
+        setState(() {
+          _wishedStars = jsonDecode(utf8.decode(res.bodyBytes))['data'] ?? [];
+          _isLoading = false;
+        });
+      else
+        setState(() => _isLoading = false);
+    } catch (_) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading)
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white24),
+      );
+    if (_wishedStars.isEmpty)
+      return const Center(
+        child: Text(
+          "아직 염원을 보낸 별이 없습니다.\n밤하늘에서 빛나는 별을 터치해보세요.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white30, height: 1.5),
+        ),
+      );
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _wishedStars.length,
+      itemBuilder: (context, index) {
+        final star = _wishedStars[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border(
+              left: BorderSide(
+                color: Color(int.parse("0xFF${star['color'] ?? 'FFFFFF'}")),
+                width: 4,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.favorite, color: Colors.yellowAccent, size: 16),
+              const SizedBox(height: 12),
+              Text(
+                star['text'],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  height: 1.5,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ==========================================
+// 7. 스타더스트 상점
+// ==========================================
+class SkinShopTab extends StatefulWidget {
+  const SkinShopTab({super.key});
+  @override
+  State<SkinShopTab> createState() => _SkinShopTabState();
+}
+
+class _SkinShopTabState extends State<SkinShopTab> {
+  Map<String, dynamic>? _userProfile;
+  final List<String> freeColors = ["FFFFFF", "FFF59D", "90CAF9", "CE93D8"];
+  final List<String> premiumColors = [
+    "FFCDD2",
+    "F48FB1",
+    "B39DDB",
+    "80CBC4",
+    "A5D6A7",
+    "FFAB91",
+    "BCAAA4",
+    "81D4FA",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/users/me'),
+      headers: {'Authorization': 'Bearer $globalToken'},
+    );
+    if (res.statusCode == 200)
+      setState(
+        () => _userProfile = jsonDecode(utf8.decode(res.bodyBytes))['data'],
+      );
+  }
+
+  Future<void> _changeColor(String hex) async {
+    final res = await http.patch(
+      Uri.parse('$baseUrl/users/me/star-color'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $globalToken',
+      },
+      body: jsonEncode({'hexColor': hex}),
+    );
+    final resData = jsonDecode(utf8.decode(res.bodyBytes));
+    if (res.statusCode == 200) {
+      _fetchProfile();
+      showToast(context, '우주 색상이 변경되었습니다.');
+    } else
+      showToast(context, resData['message'] ?? '오류가 발생했습니다.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_userProfile == null)
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white24),
+      );
+    bool isPremium = _userProfile!['isPremium'] == true;
+    String currentSkin = _userProfile!['equippedStarColor'] ?? 'FFFFFF';
+    int point = _userProfile!['point'] ?? 0;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '내 스타더스트: $point',
+            style: const TextStyle(
+              color: Colors.yellowAccent,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 40),
+          const Text(
+            '기본 별빛 스킨',
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: freeColors
+                .map((hex) => _buildColorBtn(hex, false, hex == currentSkin))
+                .toList(),
+          ),
+          const SizedBox(height: 48),
+          const Text(
+            '은하단 전용 스킨',
+            style: TextStyle(color: Colors.white54, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: premiumColors
+                .map(
+                  (hex) => _buildColorBtn(hex, !isPremium, hex == currentSkin),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColorBtn(String hex, bool isLocked, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        if (isLocked)
+          showToast(context, '은하단(프리미엄) 전용 스킨입니다.');
+        else
+          _changeColor(hex);
+      },
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(int.parse("0xFF$hex")),
+          border: isSelected ? Border.all(color: Colors.white, width: 4) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Color(int.parse("0xFF$hex")).withOpacity(0.5),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: isLocked
+            ? const Icon(Icons.lock, color: Colors.black54, size: 24)
+            : (isSelected
+                  ? const Icon(Icons.check, color: Colors.black, size: 28)
+                  : null),
       ),
     );
   }
